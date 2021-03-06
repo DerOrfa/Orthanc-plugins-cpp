@@ -10,6 +10,6 @@ Uses [OrthancPluginRegisterStorageArea](https://sdk.orthanc-server.com/group__Ca
 It stores files just like Orthanc in "StorageDirectory" *and* creates hardlinks to those files populating a directory given by "ShadowPath" with a structure of the form:
 [PatientName]/[StudyDate][StudyTime]/S[SequenceNumber]_[SequenceDescription]/[InstanceUID]`.
 
-If "StorageDirectory" and "ShadowPath" are not on the same device, it will fall back to creating symlinks.
+If "StorageDirectory" and "ShadowPath" are not on the same device, no shadow will be created.
 
 The created links are removed, if the original file is removed via Orthanc. Empty directories are removed too.

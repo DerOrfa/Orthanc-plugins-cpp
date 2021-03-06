@@ -3,6 +3,7 @@
 #include <string>
 #include <future>
 #include <fcntl.h>
+#include <memory>
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcistrmb.h>
 
@@ -69,7 +70,8 @@ fs::path GetSPath(const void* buffer, size_t size)
 
 bool makeDirectory(const fs::path &path){
 	boost::system::error_code ec;
-	if(!fs::create_directories(path,ec)){
+	fs::create_directories(path,ec);
+	if(ec){
 		OrthancPlugins::LogError(std::string("Failed to create directory \"") + path.native() + "\" " + ec.message());
 		return false;
 	} else
@@ -80,11 +82,7 @@ OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size
 	fs::path org=GetOPath(uuid);
 
 	//writing the original
-	if(!makeDirectory(org.parent_path())){
-		return OrthancPluginErrorCode_CannotWriteFile; //cannot write file
-	}
-
-	auto FILE = open(org.c_str(), O_CREAT|O_WRONLY);
+	auto FILE = open(org.c_str(), O_CREAT|O_EXCL|O_WRONLY,DEFFILEMODE);
 	auto written=write(FILE, content, size);
 	close(FILE);
 	if(written<size) {
@@ -92,21 +90,25 @@ OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size
 		return OrthancPluginErrorCode_CannotWriteFile; //cannot write file
 	}
 
-	//creating the link
+	//creating the link (if that fails, we complain but return "Success" anyways)
 	fs::path spath = shadow.get();
-//	if(makeDirectory(spath.parent_path())){
+	if(spath.empty()){
+		OrthancPlugins::LogWarning(
+			std::string("Failed to generate name for shadow of \"") + org.native() + "\" for \"" + uuid + "\" ");
+	} else if(!fs::exists(spath) && makeDirectory(spath.parent_path())){
 		int erg = link(org.c_str(), spath.c_str());
-		if (erg == EXDEV) { //not same device, fallback to symlink
-			erg = symlink(org.c_str(), spath.c_str());
-		}
-		if (erg) {
+		switch (erg) {
+		case 0:break;
+		case EXDEV:
 			OrthancPlugins::LogWarning(
-				std::string(
-					"Failed to write shadow \"") + spath.native() + "\" for \"" + uuid + "\" " +
-					strerror(errno)
-			);
+				std::string("Failed to write shadow \"") + spath.native() + "\" for \"" + uuid + "\", must be on the same device"
+			);break;
+		default:
+			OrthancPlugins::LogWarning(
+				std::string("Failed to write shadow \"") + spath.native() + "\" for \"" + uuid + "\" " + strerror(errno)
+			);break;
 		}
-//	}
+	}
 	return OrthancPluginErrorCode_Success;
 }
 OrthancPluginErrorCode read(void **content, int64_t *size, const char *uuid, OrthancPluginContentType type){
@@ -125,7 +127,7 @@ OrthancPluginErrorCode read(void **content, int64_t *size, const char *uuid, Ort
 	*content=malloc(*size);
 	auto red=read(FILE, *content, *size);
 	close(FILE);
-	if(red!=0) {
+	if(red<*size) {
 		OrthancPlugins::LogError(std::string("Failed to read all of \"") + org.native() + "\" " + strerror(errno));
 		return OrthancPluginErrorCode_CorruptedFile; //cannot read file
 	} else
@@ -136,8 +138,9 @@ void removeDir(fs::path dir){
 	boost::system::error_code ec;
 	while(fs::is_empty(dir)) {
 		fs::remove(dir, ec);
-		OrthancPlugins::LogError(
-			std::string("Failed to remove directory \"") + dir.native() + "\" " + ec.message());
+		if(ec)
+			OrthancPlugins::LogError(
+				std::string("Failed to remove directory \"") + dir.native() + "\" " + ec.message());
 		dir=dir.parent_path();
 		if(fs::equivalent(dir,oroot))
 			break;
@@ -146,25 +149,23 @@ void removeDir(fs::path dir){
 OrthancPluginErrorCode remove(const char *uuid, OrthancPluginContentType type){
 	void *content;
 	int64_t size;
-	std::future<OrthancPluginErrorCode> shadow;
-	if(read(&content,&size,uuid,OrthancPluginContentType_Unknown)){
-		shadow = std::async([content,size,&uuid]()->OrthancPluginErrorCode{
-			auto path=GetSPath(content,size);
-			if(unlink(path.c_str())){
-				OrthancPlugins::LogError(
-					std::string(
-						"Failed to delete \"") + path.native() + "\" for \"" + uuid + "\" " +
-						strerror(errno)
-				);
-				return OrthancPluginErrorCode_CorruptedFile;
-			} else {
-				removeDir(path.parent_path());
-				return OrthancPluginErrorCode_Success;
-			}
-		});
+	fs::path shadow;
+	if(read(&content,&size,uuid,OrthancPluginContentType_Unknown)==OrthancPluginErrorCode_Success){
+		shadow = GetSPath(content,size);
 	}
 
 	fs::path org=GetOPath(uuid);
+
+	//if we have a shadow (aka we could read the file, figure out the path and its actually linking to org)
+	if(fs::equivalent(shadow,org)) {
+		if(unlink(shadow.c_str())){
+			OrthancPlugins::LogWarning(
+				std::string("Failed to delete shadow \"") + shadow.native() + "\" for \"" + uuid + "\" " +
+					strerror(errno)
+			);
+		} else
+			removeDir(shadow.parent_path());
+	}
 	if(unlink(org.c_str())){
 		OrthancPlugins::LogError(
 			std::string("Failed to delete \"") +
@@ -173,8 +174,27 @@ OrthancPluginErrorCode remove(const char *uuid, OrthancPluginContentType type){
 		);
 		return OrthancPluginErrorCode_CorruptedFile;
 	}
-	return shadow.get();
+	return OrthancPluginErrorCode_Success;
 }
+
+template<int DEPTH=0> bool createDefaultPaths(const fs::path &root){
+	boost::system::error_code ec;
+	for(uint16_t id=0;id<0x100;id++){
+		char id_str[5];
+		snprintf(id_str,4,"%.2x",id);
+		const fs::path path=root/id_str;
+		fs::create_directories(path,ec);
+		if(ec) {
+			OrthancPlugins::LogError(
+				std::string("Failed to create default directory \"") + path.native()+ "(" + ec.message() + ")");
+			return false;
+		}
+		if(DEPTH<1)
+			createDefaultPaths<DEPTH+1>(path);
+	}
+	return true;
+}
+template<> bool createDefaultPaths<2>(const fs::path &root){return true;}//terminator
 
 extern "C"
 {
@@ -208,6 +228,9 @@ ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* c)
 		OrthancPlugins::LogError("Loaded shadow writer plugin. But \"ShadowPath\" in the configuration is not set");
 		return -1;
 	}
+	OrthancPlugins::LogWarning("Creating default directories in " +oroot.native() +"/..");
+	if(!createDefaultPaths(oroot))
+		return -1;
 
 	OrthancPluginRegisterStorageArea(c,write,read,remove);
 	OrthancPlugins::LogInfo(std::string("Loaded shadow writer plugin. Shadow root is ")+sroot.native());
