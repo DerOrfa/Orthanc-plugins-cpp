@@ -3,7 +3,6 @@
 #include <string>
 #include <future>
 #include <fcntl.h>
-#include <memory>
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcistrmb.h>
 
@@ -24,7 +23,7 @@ fs::path GetOPath(const std::string& uuid)
 #endif
 	return path;
 }
-std::string find(DcmSequenceOfItems &dcm,DcmTagKey key){
+std::string find(DcmSequenceOfItems &dcm,const DcmTagKey& key){
 	DcmStack resultStack;
 	dcm.search(key, resultStack);
 	if(resultStack.empty())
@@ -77,7 +76,7 @@ bool makeDirectory(const fs::path &path){
 	} else
 		return true;
 }
-OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size, OrthancPluginContentType type){
+OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size, OrthancPluginContentType ){
 	std::future<fs::path> shadow=std::async(GetSPath,content,size);
 	fs::path org=GetOPath(uuid);
 
@@ -111,7 +110,7 @@ OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size
 	}
 	return OrthancPluginErrorCode_Success;
 }
-OrthancPluginErrorCode read(void **content, int64_t *size, const char *uuid, OrthancPluginContentType type){
+OrthancPluginErrorCode read(void **content, int64_t *size, const char *uuid, OrthancPluginContentType ){
 	fs::path org=GetOPath(uuid);
 	boost::system::error_code ec;
 	*size=fs::file_size(org,ec);
@@ -146,7 +145,7 @@ void removeDir(fs::path dir){
 			break;
 	}
 }
-OrthancPluginErrorCode remove(const char *uuid, OrthancPluginContentType type){
+OrthancPluginErrorCode remove(const char *uuid, OrthancPluginContentType ){
 	void *content;
 	int64_t size;
 	fs::path shadow;
