@@ -62,7 +62,7 @@ fs::path GetSPath(const void* buffer, size_t size)
 			(PatientID.empty()?PatientName:PatientID) /
 			(StudyDate.substr(2) + "_" + StudyTime.substr(0,6))/
 			(std::string("S")+SequenceNumber+"_"+SequenceDescription)/
-			InstanceUid;
+			(InstanceUid+".dcm");
 	}
 	return {};
 }
@@ -76,11 +76,14 @@ bool makeDirectory(const fs::path &path){
 	} else
 		return true;
 }
-OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size, OrthancPluginContentType ){
-	std::future<fs::path> shadow=std::async(GetSPath,content,size);
-	fs::path org=GetOPath(uuid);
+OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size, OrthancPluginContentType type){
+	//only do shadow writing if its dicom
+	std::future<fs::path> shadow;
+	if(type == OrthancPluginContentType_Dicom)
+		shadow=std::async(GetSPath,content,size);
 
 	//writing the original
+	fs::path org=GetOPath(uuid);
 	auto FILE = open(org.c_str(), O_CREAT|O_EXCL|O_WRONLY,DEFFILEMODE);
 	auto written=write(FILE, content, size);
 	close(FILE);
@@ -88,6 +91,10 @@ OrthancPluginErrorCode write(const char *uuid, const void *content, int64_t size
 		OrthancPlugins::LogError(std::string("Failed to write \"") + org.native() + "\" " + strerror(errno));
 		return OrthancPluginErrorCode_CannotWriteFile; //cannot write file
 	}
+
+	//if we don't write the shadow, we're done here
+	if(!shadow.valid())
+		return OrthancPluginErrorCode_Success;
 
 	//creating the link (if that fails, we complain but return "Success" anyways)
 	fs::path spath = shadow.get();
