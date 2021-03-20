@@ -36,12 +36,12 @@ target_link_libraries(orthanc_shadowwriter ${DCMTK_LIBRARIES})
 set_target_properties(orthanc_shadowwriter PROPERTIES VERSION ${SERVE_FOLDERS_VERSION} SOVERSION ${SERVE_FOLDERS_VERSION})
 
 add_library(orthanc_instancefilter SHARED
-	instancefilter.cpp
+	instancefilter.cpp dicomhandle.cpp patientnamemapping.cpp tagprocessorlist.cpp
 	${ORTHANC_PLUGINS_COMMON_PATH}/OrthancPluginCppWrapper.cpp
 	${JSONCPP_SOURCES}
 )
 target_link_libraries(orthanc_instancefilter ${DCMTK_LIBRARIES} OpenSSL::SSL)
-set_target_properties(orthanc_instancefilter PROPERTIES VERSION ${SERVE_FOLDERS_VERSION} SOVERSION ${SERVE_FOLDERS_VERSION})
+set_target_properties(orthanc_instancefilter PROPERTIES	VERSION ${SERVE_FOLDERS_VERSION} SOVERSION ${SERVE_FOLDERS_VERSION})
 
 #add_library(orthanc_dicomprocessor SHARED
 #	dicomtransform.cpp

@@ -244,19 +244,7 @@ ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* c)
 }
 
 
-ORTHANC_PLUGINS_API void OrthancPluginFinalize()
-{
-}
-
-
-ORTHANC_PLUGINS_API const char* OrthancPluginGetName()
-{
-	return "shadow writer";
-}
-
-
-ORTHANC_PLUGINS_API const char* OrthancPluginGetVersion()
-{
-	return "0.0";
-}
+ORTHANC_PLUGINS_API void OrthancPluginFinalize(){}
+ORTHANC_PLUGINS_API const char* OrthancPluginGetName(){return "shadow writer";}
+ORTHANC_PLUGINS_API const char* OrthancPluginGetVersion(){return "0.0";}
 }
