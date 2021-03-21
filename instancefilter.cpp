@@ -136,15 +136,14 @@ ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* c)
 	OrthancPlugins::OrthancConfiguration().GetSection(patient_map_cfg,"PatientIDMap");
 	patient_name_map.reset(new PatientNameMapping(patient_map_cfg));
 
-	//setup up tag processing mapping
-	OrthancPlugins::OrthancConfiguration().GetSection(tag_processing_cfg,"ProcessTags");
-	tag_processor_list.reset(new TagProcessorList(tag_processing_cfg));
-
 	//setting up filter for incoming instances (this does not change data, only accepts or rejects them)
 	OrthancPluginRegisterIncomingDicomInstanceFilter(c,instanceFilter);
 
-	//register transcoder (this *does* change incoming data)
-	OrthancPluginRegisterTranscoderCallback(c,transcoder);
+	//doesn't work, as the callback is only called when image is transcoded by Orthanc
+	//setup up tag processing mapping
+//	OrthancPlugins::OrthancConfiguration().GetSection(tag_processing_cfg,"ProcessTags");
+//	tag_processor_list.reset(new TagProcessorList(tag_processing_cfg));
+//	OrthancPluginRegisterTranscoderCallback(c,transcoder);
 
 	return 0;
 }
