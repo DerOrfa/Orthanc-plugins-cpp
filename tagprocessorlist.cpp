@@ -20,7 +20,14 @@ std::string TagProcessingGenerator::generate(DcmDataset &dset) const
 
 TagProcessorList::TagProcessorList(const OrthancPlugins::OrthancConfiguration &configuration)
 {
-	const DcmDataDictionary &dict=GlobalDcmDataDictionary().rdlock();
+
+	static const DcmDataDictionary dict(true,true);
+
+	if(!dict.isDictionaryLoaded()){
+		OrthancPlugins::LogError("Dicom dictionary not loaded, won't do any processing");
+		return;
+	}
+
 	const Json::Value &cfg=configuration.GetJson();
 	clear();
 
