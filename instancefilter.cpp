@@ -150,8 +150,8 @@ ORTHANC_PLUGINS_API int32_t OrthancPluginInitialize(OrthancPluginContext* c)
 }
 
 ORTHANC_PLUGINS_API void OrthancPluginFinalize(){
-	patient_name_map.release();
-	tag_processor_list.release();
+	patient_name_map.reset();
+	tag_processor_list.reset();
 }
 ORTHANC_PLUGINS_API const char* OrthancPluginGetName()
 {
