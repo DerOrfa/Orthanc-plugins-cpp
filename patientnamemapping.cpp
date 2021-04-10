@@ -50,6 +50,7 @@ void PatientNameMapping::update()
 	std::ifstream in(filename.c_str());
 	in.exceptions(std::ifstream::badbit);
 	map.clear();
+	values.clear();
 	OrthancPlugins::LogError(std::string("(Re)loading patient name mapping from ") + filename.native());
 	while(in.good()){
 		std::string buffer;

@@ -13,9 +13,6 @@ SET(USE_SYSTEM_BOOST ON CACHE BOOL "Use the system version of boost")
 SET(ORTHANC_PLUGINS_COMMON_PATH CACHE PATH "Path to the \"common\" directory in the \"plugins/sample\" directory of orthanc")
 SET(ORTHANC_FRAMEWORK_PATH CACHE PATH "Path to the orthanc framework directory")
 
-find_file(ORTHANC_PLUGINS_CMAKE "OrthancPlugins.cmake" REQUIRED)
-
-
 include(${ORTHANC_PLUGINS_COMMON_PATH}/OrthancPlugins.cmake)
 include(${ORTHANC_FRAMEWORK_PATH}/Resources/CMake/JsonCppConfiguration.cmake)
 include(${ORTHANC_FRAMEWORK_PATH}/Resources/CMake/BoostConfiguration.cmake)

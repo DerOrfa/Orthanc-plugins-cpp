@@ -153,12 +153,14 @@ void removeDir(fs::path dir){
 	}
 }
 OrthancPluginErrorCode remove(const char *uuid, OrthancPluginContentType ){
-	void *content;
+	void *content = nullptr;
 	int64_t size;
 	fs::path shadow;
-	if(read(&content,&size,uuid,OrthancPluginContentType_Unknown)==OrthancPluginErrorCode_Success){
+	if(read(&content,&size,uuid,OrthancPluginContentType_Unknown)==OrthancPluginErrorCode_Success)
 		shadow = GetSPath(content,size);
-	}
+
+	if(content)
+		free(content);
 
 	fs::path org=GetOPath(uuid);
 
